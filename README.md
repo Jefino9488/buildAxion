@@ -27,6 +27,65 @@ cd axionos
 
 ---
 
+## Build Status Script (Optional)
+
+Use this script to get build status notifications via Telegram during your manual builds.
+
+### Download the Script
+
+```bash
+wget https://raw.githubusercontent.com/Saikrishna1504/build-script/main/ci_bot.py
+chmod +x ci_bot.py
+```
+
+### Configure Variables
+
+Edit the script and update the configuration:
+
+```bash
+nano ci_bot.py
+```
+
+**Key variables to set:**
+```python
+DEVICE = "xaga"                    # Your device codename
+VARIANT = "userdebug"              # Build variant: user/userdebug/eng
+ROM_TYPE = "axion-pico"            # Options: "axion-pico" / "axion-core" / "axion-vanilla"
+CONFIG_OFFICIAL_FLAG = ""          # Set to "1" for official builds
+CONFIG_CHATID = "-xxxxxxxx"        # Your Telegram group/channel chat ID
+CONFIG_BOT_TOKEN = ""              # Your Telegram bot token (from BotFather)
+CONFIG_ERROR_CHATID = ""           # Secondary chat for error logs
+RCLONE_REMOTE = ""                 # Your rclone remote for uploading
+RCLONE_FOLDER = ""                 # Your rclone folder name
+POWEROFF = False                   # Turn off server after build
+```
+
+### Requirements
+
+```bash
+# Python packages (Debian/Ubuntu)
+sudo apt install python3-requests python3-pil
+
+# Python packages (Arch Linux)
+sudo pacman -S python-requests python-pillow
+
+# Optional: rclone for cloud uploads
+sudo apt install rclone git
+
+# Required for OTA JSON upload
+sudo apt install netcat-openbsd
+```
+
+### Usage
+
+```bash
+python3 ci_bot.py -h
+```
+
+For more details, visit: [Saikrishna1504/build-script](https://github.com/Saikrishna1504/build-script)
+
+---
+
 ## Fetching Source Code
 
 ### Initialize AxionOS Repository
@@ -153,8 +212,8 @@ PERF_GOV_SUPPORTED := true
 PERF_DEFAULT_GOV := schedutil
 
 # GPU paths (MediaTek Dimensity 8100)
-GPU_FREQS_PATH := /sys/devices/platform/13000000.mali/available_frequencies
-GPU_MIN_FREQ_PATH := /sys/devices/platform/13000000.mali/hint_min_freq
+GPU_FREQS_PATH := /sys/class/devfreq/13000000.mali/available_frequencies
+GPU_MIN_FREQ_PATH := /sys/class/devfreq/13000000.mali/min_freq
 ```
 
 ### Audio Configuration
