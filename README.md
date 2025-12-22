@@ -49,37 +49,37 @@ Clone all required repositories for the xaga device:
 
 ### Device Trees
 ```bash
-git clone --depth=1 https://github.com/XagaForge/android_device_xiaomi_xaga device/xiaomi/xaga
-git clone --depth=1 https://github.com/XagaForge/android_device_xiaomi_mt6895-common device/xiaomi/mt6895-common
+git clone https://github.com/XagaForge/android_device_xiaomi_xaga device/xiaomi/xaga
+git clone https://github.com/XagaForge/android_device_xiaomi_mt6895-common device/xiaomi/mt6895-common
 ```
 
 ### Kernel Sources
 ```bash
-git clone --depth=1 https://github.com/XagaForge/android_kernel_xiaomi_mt6895 kernel/xiaomi/mt6895
+git clone https://github.com/XagaForge/android_kernel_xiaomi_mt6895 kernel/xiaomi/mt6895
 ```
 
 ### Vendor Trees
 ```bash
-git clone --depth=1 https://gitlab.com/priiii08918/android_vendor_xiaomi_xaga vendor/xiaomi/xaga
-git clone --depth=1 https://github.com/XagaForge/android_vendor_xiaomi_mt6895-common vendor/xiaomi/mt6895-common
-git clone --depth=1 https://github.com/XagaForge/android_vendor_firmware vendor/firmware
+git clone https://gitlab.com/priiii08918/android_vendor_xiaomi_xaga vendor/xiaomi/xaga
+git clone https://github.com/XagaForge/android_vendor_xiaomi_mt6895-common vendor/xiaomi/mt6895-common
+git clone https://github.com/XagaForge/android_vendor_firmware vendor/firmware
 ```
 
 ### Hardware Dependencies
 ```bash
-git clone --depth=1 https://github.com/XagaForge/android_hardware_xiaomi hardware/xiaomi
-git clone --depth=1 https://github.com/XagaForge/android_hardware_mediatek hardware/mediatek
+git clone https://github.com/XagaForge/android_hardware_xiaomi hardware/xiaomi
+git clone https://github.com/XagaForge/android_hardware_mediatek hardware/mediatek
 ```
 
 ### MediaTek Dependencies
 ```bash
-git clone --depth=1 https://github.com/XagaForge/android_device_mediatek_sepolicy_vndr device/mediatek/sepolicy_vndr
-git clone --depth=1 https://github.com/XagaForge/android_vendor_mediatek_ims vendor/mediatek/ims
+git clone https://github.com/XagaForge/android_device_mediatek_sepolicy_vndr device/mediatek/sepolicy_vndr
+git clone https://github.com/XagaForge/android_vendor_mediatek_ims vendor/mediatek/ims
 ```
 
 ### MIUI Camera (Optional)
 ```bash
-git clone --depth=1 https://gitlab.com/priiii1808/proprietary_vendor_xiaomi_miuicamera-xaga.git vendor/xiaomi/miuicamera-xaga
+git clone https://gitlab.com/priiii1808/proprietary_vendor_xiaomi_miuicamera-xaga.git vendor/xiaomi/miuicamera-xaga
 ```
 
 ---
@@ -155,11 +155,11 @@ PERF_DEFAULT_GOV := schedutil
 # GPU paths (MediaTek Dimensity 8100)
 GPU_FREQS_PATH := /sys/devices/platform/13000000.mali/available_frequencies
 GPU_MIN_FREQ_PATH := /sys/devices/platform/13000000.mali/hint_min_freq
-
-# High Brightness Mode
-HBM_SUPPORTED := false
-HBM_NODE := /sys/class/backlight/panel0-backlight/hbm_mode
 ```
+
+### Audio Configuration
+
+> **Note**: You may need to modify `config/audio/audio_effects.xml` in your device tree for proper audio effects support.
 
 ---
 
