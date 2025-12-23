@@ -51,7 +51,7 @@ class BotConfig:
 
     # Sync/device related
     WORKDIR: str = "axionos"
-    THREADS: int = max(os.cpu_count() or 1, 1)
+    THREADS: int = os.cpu_count() or 8
     WITH_MIUI_CAM: bool = False
     APPLY_WPA_PATCHES: bool = False
 
@@ -65,6 +65,7 @@ class BotConfig:
     CONFIG_ERROR_CHATID: str = ""   # Optional error log chat id
     RCLONE_REMOTE: str = ""
     RCLONE_FOLDER: str = ""
+    PIXELDRAIN_API_KEY: str = ""
     POWEROFF: bool = False
 
     # Telegram/announce options
@@ -117,6 +118,7 @@ class BotConfig:
             CONFIG_ERROR_CHATID=merged.get("CONFIG_ERROR_CHATID", cls.CONFIG_ERROR_CHATID),
             RCLONE_REMOTE=merged.get("RCLONE_REMOTE", cls.RCLONE_REMOTE),
             RCLONE_FOLDER=merged.get("RCLONE_FOLDER", cls.RCLONE_FOLDER),
+            PIXELDRAIN_API_KEY=merged.get("PIXELDRAIN_API_KEY", cls.PIXELDRAIN_API_KEY),
             POWEROFF=_to_bool(merged.get("POWEROFF"), False),
             UPLOAD_OTA_JSON=_to_bool(merged.get("UPLOAD_OTA_JSON"), True),
             OTA_JSON_PATH=merged.get("OTA_JSON_PATH", cls.OTA_JSON_PATH),

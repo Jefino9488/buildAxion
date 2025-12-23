@@ -97,8 +97,11 @@ main() {
     repo init -u "$AXION_REMOTE_URL" -b "$AXION_BRANCH" --git-lfs
   fi
 
-  log "Syncing sources with $THREADS threads..."
-  repo sync -c --no-clone-bundle --optimized-fetch --prune --force-sync -j"$THREADS"
+  # Optimize sync threads: use THREADS * 4 for network-bound sync, but at least 8
+  local sync_threads=$(( THREADS * 4 ))
+  if (( sync_threads < 8 )); then sync_threads=8; fi
+  log "Syncing sources with $sync_threads threads (optimized for network)..."
+  repo sync -c --no-clone-bundle --optimized-fetch --prune --force-sync -j"$sync_threads"
 
   log "Cloning device/kernel/vendor/hardware trees for xaga..."
   clone_if_missing https://github.com/XagaForge/android_device_xiaomi_xaga device/xiaomi/xaga

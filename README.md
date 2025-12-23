@@ -10,7 +10,8 @@ If you are using Arch Linux, you may encounter errors when building kernel. See 
 You need a high performance computer:
 - **RAM**: At least 16GB RAM is required for a smooth build
 - **Storage**: ~300GB free disk space recommended
-- **Swap**: Enable enough swap if you have limited RAM
+- **Swap**: 64GB swap is highly recommended for 16GB RAM systems (automated by `setup_build_env.sh`)
+- **Cache**: 100GB ccache recommended (automated by `setup_build_env.sh`)
 
 **Reference build time**: AMD Ryzen 7 7700X + 16GB DDR5 RAM + NVMe SSD, with 8GB Zram and 64GB Swap. Around 3 hours for first full build without ccache.
 
@@ -57,6 +58,7 @@ CONFIG_BOT_TOKEN = ""              # Your Telegram bot token (from BotFather)
 CONFIG_ERROR_CHATID = ""           # Secondary chat for error logs
 RCLONE_REMOTE = ""                 # Your rclone remote for uploading
 RCLONE_FOLDER = ""                 # Your rclone folder name
+PIXELDRAIN_API_KEY = ""            # Your Pixeldrain API key for uploading
 POWEROFF = False                   # Turn off server after build
 ```
 
@@ -239,6 +241,7 @@ cp -r /lib64/libyaml-0.so.2.0.9 prebuilts/kernel-build-tools/linux-x86/lib64/lib
 
 ```bash
 . build/envsetup.sh
+export USE_CCACHE=1
 ```
 
 ### Step 2: Generate Private Keys (First Build Only)

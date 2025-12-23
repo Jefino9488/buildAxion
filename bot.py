@@ -50,6 +50,9 @@ CONFIG_ERROR_CHATID = ""
 RCLONE_REMOTE = ""
 RCLONE_FOLDER = ""
 
+# Pixeldrain Configuration (Optional)
+PIXELDRAIN_API_KEY = ""
+
 # Power Management
 POWEROFF = False
 
@@ -76,6 +79,7 @@ try:
     CONFIG_ERROR_CHATID = _CFG.CONFIG_ERROR_CHATID or CONFIG_ERROR_CHATID
     RCLONE_REMOTE = _CFG.RCLONE_REMOTE or RCLONE_REMOTE
     RCLONE_FOLDER = _CFG.RCLONE_FOLDER or RCLONE_FOLDER
+    PIXELDRAIN_API_KEY = _CFG.PIXELDRAIN_API_KEY or PIXELDRAIN_API_KEY
     POWEROFF = bool(_CFG.POWEROFF)
     UPLOAD_OTA_JSON = bool(getattr(_CFG, 'UPLOAD_OTA_JSON', UPLOAD_OTA_JSON))
     OTA_JSON_PATH = getattr(_CFG, 'OTA_JSON_PATH', OTA_JSON_PATH)
@@ -603,6 +607,38 @@ def upload_gofile(file_path):
         print(f"❌ Error: {e}")
     return None
 
+def upload_pixeldrain(file_path):
+    """Upload file to Pixeldrain"""
+    if not PIXELDRAIN_API_KEY:
+        return None
+
+    file_name = os.path.basename(file_path)
+    file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+
+    print(f"📤 Uploading via Pixeldrain: {file_name} ({file_size_mb:.2f} MB)")
+
+    try:
+        # Use PUT /file/{name} for better reliability with large files
+        url = f"https://pixeldrain.com/api/file/{file_name}"
+        with open(file_path, 'rb') as f:
+            response = requests.put(
+                url,
+                auth=('', PIXELDRAIN_API_KEY),
+                data=f,
+                timeout=3600
+            )
+
+        result = response.json()
+        if response.status_code == 201 or result.get('success'):
+            file_id = result.get('id')
+            print(f"✅ Upload complete! File ID: {file_id}")
+            return f"https://pixeldrain.com/u/{file_id}"
+        
+        print(f"❌ Pixeldrain upload failed: {result}")
+    except Exception as e:
+        print(f"❌ Pixeldrain error: {e}")
+    return None
+
 def upload_rclone(file_path):
     """Upload file via rclone with duplicate handling"""
     file_name = os.path.basename(file_path)
@@ -684,6 +720,12 @@ def upload_file(file_path):
         url = upload_rclone(file_path)
         if url:
             return url
+    
+    if PIXELDRAIN_API_KEY:
+        url = upload_pixeldrain(file_path)
+        if url:
+            return url
+
     url = upload_gofile(file_path)
     return url if url else "Upload failed"
 
@@ -915,6 +957,7 @@ def main():
             'CONFIG_ERROR_CHATID': cfg.CONFIG_ERROR_CHATID or CONFIG_ERROR_CHATID,
             'RCLONE_REMOTE': cfg.RCLONE_REMOTE or RCLONE_REMOTE,
             'RCLONE_FOLDER': cfg.RCLONE_FOLDER or RCLONE_FOLDER,
+            'PIXELDRAIN_API_KEY': cfg.PIXELDRAIN_API_KEY or PIXELDRAIN_API_KEY,
             'POWEROFF': bool(cfg.POWEROFF),
         })
 
@@ -941,7 +984,8 @@ def main():
 <b>• ANDROID VERSION:</b> <code>{ANDROID_VERSION}</code>""")
 
         try:
-            subprocess.run(['repo', 'sync', '-c', '--force-sync', '--no-clone-bundle', '--no-tags'], check=True)
+            sync_threads = cfg.THREADS * 4 if cfg else 32
+            subprocess.run(['repo', 'sync', '-c', '--force-sync', '--no-clone-bundle', '--no-tags', '-j', str(sync_threads)], check=True)
             edit_message(sync_msg_id, f"""🟢 | <i>Sources synced!!</i>
 
 <b>• ROM:</b> <code>{ROM_NAME}</code>
@@ -997,22 +1041,31 @@ def main():
 
     # Build command
     env_cmd = '. build/envsetup.sh'
+    j_flag = f"-j{cfg.THREADS}" if cfg else ""
     if ROM_TYPE.startswith('axion-'):
         gms_type = ROM_TYPE.split('-')[1]
         gms_variant = 'vanilla' if gms_type == 'vanilla' else f'gms {gms_type}'
-        build_cmd = f'{env_cmd} && axion {DEVICE} {VARIANT} {gms_variant} && ax -br'
-        print(f"Build command: axion {DEVICE} {VARIANT} {gms_variant} && ax -br")
+        build_cmd = f'{env_cmd} && axion {DEVICE} {VARIANT} {gms_variant} && ax -fb {j_flag}'
+        print(f"Build command: axion {DEVICE} {VARIANT} {gms_variant} && ax -fb {j_flag}")
     else:
-        build_cmd = f'{env_cmd} && brunch {DEVICE} {VARIANT}'
-        print(f"Build command: brunch {DEVICE} {VARIANT}")
+        build_cmd = f'{env_cmd} && brunch {DEVICE} {VARIANT} {j_flag}'
+        print(f"Build command: brunch {DEVICE} {VARIANT} {j_flag}")
 
     print(f"Log file: {BUILD_LOG}\n")
+
+    # Prepare build environment variables
+    build_env = os.environ.copy()
+    build_env['USE_CCACHE'] = '1'
+    ccache_path = shutil.which('ccache')
+    if ccache_path:
+        build_env['CCACHE_EXEC'] = ccache_path
 
     # Start build process
     with open(BUILD_LOG, 'w') as log_file:
         build_process = subprocess.Popen(
             build_cmd, shell=True, executable='/bin/bash',
-            stdout=log_file, stderr=subprocess.STDOUT
+            stdout=log_file, stderr=subprocess.STDOUT,
+            env=build_env
         )
 
     # Start monitoring threads

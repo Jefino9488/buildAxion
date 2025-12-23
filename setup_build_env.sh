@@ -121,6 +121,33 @@ After this, proceed with source sync using: ./setup_xaga_env.sh
 EOF
 }
 
+optimize_host() {
+  log "Optimizing host for 16GB RAM / 8 vCPU profile..."
+
+  # Swap: 64GB
+  if swapon --show | grep -q "/swapfile"; then
+    log "Swapfile already exists. Skipping creation."
+  else
+    log "Creating 64GB swapfile (this may take a while)..."
+    # Try fallocate first (fast), fallback to dd
+    sudo fallocate -l 64G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=65536
+    sudo chmod 600 /swapfile
+    sudo mkswap /swapfile
+    sudo swapon /swapfile
+    if ! grep -q "/swapfile" /etc/fstab; then
+      echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+    fi
+  fi
+
+  # Ccache: 100GB
+  if command -v ccache >/dev/null 2>&1; then
+    log "Setting ccache max size to 100GB..."
+    ccache -M 100G
+  else
+    warn "ccache not found, skipping size configuration."
+  fi
+}
+
 main() {
   if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     usage
@@ -129,6 +156,7 @@ main() {
 
   log "Starting build environment setup..."
   detect_os_and_install
+  optimize_host
   log "Environment ready. Next steps:"
   echo "  - Open a new shell or add \"export PATH=\$HOME/bin:\$PATH\" to your shell rc"
   echo "  - Run: ./setup_xaga_env.sh to sync AxionOS source and device trees"
