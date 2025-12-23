@@ -54,6 +54,8 @@ class BotConfig:
     THREADS: int = os.cpu_count() or 8
     WITH_MIUI_CAM: bool = False
     APPLY_WPA_PATCHES: bool = False
+    BUILD_VOLUME_DEVICE: str = ""
+    USE_SAFE_BUILD: bool = True
 
     # Build/bot options (reserved for future use / parity with README ci bot)
     DEVICE: str = "xaga"
@@ -109,6 +111,8 @@ class BotConfig:
             THREADS=_to_int(merged.get("THREADS"), cls.THREADS),
             WITH_MIUI_CAM=_to_bool(merged.get("WITH_MIUI_CAM"), False),
             APPLY_WPA_PATCHES=_to_bool(merged.get("APPLY_WPA_PATCHES"), False),
+            BUILD_VOLUME_DEVICE=merged.get("BUILD_VOLUME_DEVICE", cls.BUILD_VOLUME_DEVICE),
+            USE_SAFE_BUILD=_to_bool(merged.get("USE_SAFE_BUILD"), True),
             DEVICE=merged.get("DEVICE", cls.DEVICE),
             VARIANT=merged.get("VARIANT", cls.VARIANT),
             ROM_TYPE=merged.get("ROM_TYPE", cls.ROM_TYPE),
@@ -136,6 +140,7 @@ class BotConfig:
             "THREADS": str(self.THREADS),
             "WITH_MIUI_CAM": "true" if self.WITH_MIUI_CAM else "false",
             "APPLY_WPA_PATCHES": "true" if self.APPLY_WPA_PATCHES else "false",
+            "BUILD_VOLUME_DEVICE": self.BUILD_VOLUME_DEVICE,
         }
 
     def as_dict(self) -> Dict[str, Any]:

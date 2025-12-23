@@ -912,11 +912,13 @@ def main():
     if cfg is not None:
         if getattr(cfg, 'RUN_ENV_SETUP', False):
             print("🧰 Setting up build environment (RUN_ENV_SETUP=true)...")
+            env = os.environ.copy()
+            env.update(cfg.to_script_env())
             try:
                 if getattr(cfg, 'DRY_RUN', False):
                     print("[DRY_RUN] Would run ./setup_build_env.sh")
                 else:
-                    _run(['./setup_build_env.sh'])
+                    _run(['./setup_build_env.sh'], env=env)
             except FileNotFoundError:
                 print("⚠️  setup_build_env.sh not found; skipping.")
 
@@ -968,7 +970,18 @@ def main():
     ANDROID_VERSION = detect_android_version()
     print(f"{'✅ Found' if ANDROID_VERSION != 'Unknown' else '⚠️  Could not detect'} Android version: {ANDROID_VERSION}")
 
-    OUT_DIR = os.path.join(ROOT_DIRECTORY, f"out/target/product/{DEVICE}")
+    # Respect OUT_DIR from environment or default to 'out'
+    # Fallback to /build/out if it exists and OUT_DIR is not set
+    out_dir_base = os.environ.get("OUT_DIR")
+    if not out_dir_base:
+        if os.path.isdir("/build/out"):
+            out_dir_base = "/build/out"
+        else:
+            out_dir_base = "out"
+
+    if not os.path.isabs(out_dir_base):
+        out_dir_base = os.path.join(ROOT_DIRECTORY, out_dir_base)
+    OUT_DIR = os.path.join(out_dir_base, f"target/product/{DEVICE}")
 
     # Cleanup old logs
     for log_file in ['out/error.log', 'out/.lock', BUILD_LOG]:
@@ -1059,6 +1072,22 @@ def main():
     ccache_path = shutil.which('ccache')
     if ccache_path:
         build_env['CCACHE_EXEC'] = ccache_path
+    
+    if os.environ.get('CCACHE_DIR'):
+        build_env['CCACHE_DIR'] = os.environ.get('CCACHE_DIR')
+    elif os.path.isdir("/build/ccache"):
+        build_env['CCACHE_DIR'] = "/build/ccache"
+
+    # Add safe build flags if enabled (OOM avoidance)
+    if getattr(cfg, 'USE_SAFE_BUILD', True):
+        print("🛡️  Enabling OOM-safe build flags...")
+        threads = cfg.THREADS if cfg else 8
+        build_env['NINJA_ARGS'] = f"-j{threads} -l{threads}"
+        build_env['SOONG_BUILD_TESTS'] = 'false'
+        build_env['SKIP_ABI_CHECKS'] = 'true'
+        # Append to LDFLAGS if already exists
+        ldflags = build_env.get('LDFLAGS', '')
+        build_env['LDFLAGS'] = f"{ldflags} -Wl,--no-keep-memory".strip()
 
     # Start build process
     with open(BUILD_LOG, 'w') as log_file:

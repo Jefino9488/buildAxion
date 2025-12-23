@@ -25,12 +25,16 @@ ensure_repo_tool() {
   curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo -o "$dest"
   chmod +x "$dest"
   if [[ ":$PATH:" != *":$HOME/bin:"* ]]; then
-    warn "Add $HOME/bin to your PATH, e.g.: echo 'export PATH=\"$HOME/bin:$PATH\"' >> ~/.bashrc && source ~/.bashrc"
+    log "Adding $HOME/bin to PATH in ~/.bashrc"
+    echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
+    warn "Added $HOME/bin to your PATH. Please run 'source ~/.bashrc' or restart your shell."
   fi
 }
 
 install_debian_based() {
   need_cmd sudo
+  log "Enabling i386 architecture..."
+  sudo dpkg --add-architecture i386 || true
   log "Updating apt package index..."
   sudo apt-get update -y
   log "Installing base build dependencies (Debian/Ubuntu)..."
@@ -40,9 +44,13 @@ install_debian_based() {
     build-essential bc bison flex gperf zip unzip \
     ccache lzop schedtool \
     python3 python3-pip \
-    zlib1g-dev libncurses5 libncurses5-dev libtinfo5 \
+    zlib1g-dev libncurses6 libncurses-dev libtinfo6 \
     libssl-dev libxml2-utils xsltproc \
     rsync coreutils file make cmake ninja-build pkg-config \
+    adb android-tools-adb imagemagick pngcrush \
+    libsdl1.2-dev lz4 \
+    lib32ncurses-dev lib32readline-dev lib32z1-dev \
+    squashfs-tools yasm \
     jq aria2 \
     netcat-openbsd \
     rclone
@@ -121,8 +129,48 @@ After this, proceed with source sync using: ./setup_xaga_env.sh
 EOF
 }
 
+setup_build_volume() {
+  local device="${BUILD_VOLUME_DEVICE:-}"
+  if [[ -z "$device" ]]; then
+    return 0
+  fi
+
+  if mountpoint -q /build 2>/dev/null; then
+    log "/build is already a mountpoint. Skipping setup."
+    return 0
+  fi
+
+  log "Setting up build volume on $device..."
+  if ! lsblk "$device" >/dev/null 2>&1; then
+    warn "Device $device not found! Skipping build volume setup."
+    return 0
+  fi
+
+  # Check if it has a filesystem
+  if ! sudo blkid "$device" >/dev/null 2>&1; then
+    log "Formatting $device as ext4..."
+    sudo mkfs.ext4 "$device"
+  fi
+
+  sudo mkdir -p /build
+  log "Mounting $device to /build..."
+  sudo mount "$device" /build || { warn "Failed to mount $device"; return 1; }
+  sudo chown -R "$USER:$USER" /build
+
+  # Persist in fstab
+  local uuid
+  uuid=$(sudo blkid -s UUID -o value "$device")
+  if [[ -n "$uuid" ]] && ! grep -q "$uuid" /etc/fstab; then
+    log "Adding /build to /etc/fstab..."
+    echo "UUID=$uuid /build ext4 defaults,noatime,discard 0 2" | sudo tee -a /etc/fstab
+  fi
+}
+
 optimize_host() {
   log "Optimizing host for 16GB RAM / 8 vCPU profile..."
+
+  # Build volume if requested via BUILD_VOLUME_DEVICE
+  setup_build_volume
 
   # Swap: 64GB
   if swapon --show | grep -q "/swapfile"; then
@@ -139,12 +187,43 @@ optimize_host() {
     fi
   fi
 
+  # Tune swappiness
+  log "Setting swappiness to 10..."
+  echo "vm.swappiness=10" | sudo tee /etc/sysctl.d/99-swappiness.conf > /dev/null
+  sudo sysctl -p /etc/sysctl.d/99-swappiness.conf > /dev/null || true
+
   # Ccache: 100GB
+  local ccache_dir="$HOME/.ccache"
+  if [[ -d /build ]]; then
+    ccache_dir="/build/ccache"
+    mkdir -p "$ccache_dir"
+  fi
+
   if command -v ccache >/dev/null 2>&1; then
-    log "Setting ccache max size to 100GB..."
+    log "Setting ccache max size to 100GB and directory to $ccache_dir..."
+    export CCACHE_DIR="$ccache_dir"
     ccache -M 100G
+    
+    # Persist in .bashrc if not already there
+    if ! grep -q "export CCACHE_DIR" ~/.bashrc; then
+      {
+        echo "export USE_CCACHE=1"
+        echo "export CCACHE_EXEC=$(command -v ccache)"
+        echo "export CCACHE_DIR=$ccache_dir"
+      } >> ~/.bashrc
+      log "Persisted ccache settings in ~/.bashrc"
+    fi
   else
     warn "ccache not found, skipping size configuration."
+  fi
+
+  # Persistent OUT_DIR if /build exists
+  if [[ -d /build ]]; then
+    mkdir -p /build/out
+    if ! grep -q "export OUT_DIR" ~/.bashrc; then
+      echo "export OUT_DIR=/build/out" >> ~/.bashrc
+      log "Persisted OUT_DIR=/build/out in ~/.bashrc"
+    fi
   fi
 }
 

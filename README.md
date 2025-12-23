@@ -10,8 +10,10 @@ If you are using Arch Linux, you may encounter errors when building kernel. See 
 You need a high performance computer:
 - **RAM**: At least 16GB RAM is required for a smooth build
 - **Storage**: ~300GB free disk space recommended
-- **Swap**: 64GB swap is highly recommended for 16GB RAM systems (automated by `setup_build_env.sh`)
-- **Cache**: 100GB ccache recommended (automated by `setup_build_env.sh`)
+- **Swap**: 64GB swap is highly recommended for 16GB RAM systems (automated by `setup_build_env.sh` with swappiness=10)
+- **Cache**: 100GB ccache recommended (automated by `setup_build_env.sh`, persisted in `~/.bashrc`)
+- **Storage Layout**: For cloud servers with extra volumes, mounting to `/build` is recommended to avoid disk contention (automated by `setup_build_env.sh` if `BUILD_VOLUME_DEVICE` is set)
+- **OOM Prevention**: Safe build flags are automatically applied by the CI bot to prevent Out-Of-Memory errors during compilation.
 
 **Reference build time**: AMD Ryzen 7 7700X + 16GB DDR5 RAM + NVMe SSD, with 8GB Zram and 64GB Swap. Around 3 hours for first full build without ccache.
 
@@ -59,6 +61,8 @@ CONFIG_ERROR_CHATID = ""           # Secondary chat for error logs
 RCLONE_REMOTE = ""                 # Your rclone remote for uploading
 RCLONE_FOLDER = ""                 # Your rclone folder name
 PIXELDRAIN_API_KEY = ""            # Your Pixeldrain API key for uploading
+BUILD_VOLUME_DEVICE = ""           # Optional: extra volume device (e.g., "/dev/sdb")
+USE_SAFE_BUILD = True              # Enable OOM-safe flags (default: True)
 POWEROFF = False                   # Turn off server after build
 ```
 
