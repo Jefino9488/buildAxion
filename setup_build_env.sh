@@ -39,17 +39,18 @@ install_debian_based() {
   sudo apt-get update -y
   log "Installing base build dependencies (Debian/Ubuntu)..."
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    git git-lfs curl wget ca-certificates gnupg \
+    git git-core git-lfs curl wget ca-certificates gnupg \
     openjdk-17-jdk \
     build-essential bc bison flex gperf zip unzip \
     ccache lzop schedtool \
     python3 python3-pip \
     zlib1g-dev libncurses6 libncurses-dev libtinfo6 \
-    libssl-dev libxml2-utils xsltproc \
+    libssl-dev libxml2-utils xsltproc fontconfig \
     rsync coreutils file make cmake ninja-build pkg-config \
     adb android-tools-adb imagemagick pngcrush \
-    libsdl1.2-dev lz4 \
-    lib32ncurses-dev lib32readline-dev lib32z1-dev \
+    libsdl1.2-dev lz4 libgl1-mesa-dev \
+    lib32ncurses-dev lib32readline-dev lib32z1-dev libc6-dev-i386 \
+    x11proto-core-dev libx11-dev \
     squashfs-tools yasm \
     jq aria2 \
     netcat-openbsd \
