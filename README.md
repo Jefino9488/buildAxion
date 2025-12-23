@@ -19,7 +19,76 @@ You need a high performance computer:
 
 ---
 
-## Working Directory Setup
+## 🚀 Automated Build Guide (Recommended)
+
+This project includes a fully automated build automation suite that handles environment setup, source syncing, and compilation with built-in OOM (Out-of-Memory) prevention, storage optimization, and Telegram notifications.
+
+### 1. Initial Setup
+
+Clone this repository to your build server:
+
+```bash
+git clone https://github.com/your-username/buildAxion.git
+cd buildAxion
+```
+
+### 2. Configuration
+
+Copy the template environment file and edit it with your settings:
+
+```bash
+cp .env_xaga .env
+nano .env
+```
+
+**Key Configuration Options:**
+- `RUN_ENV_SETUP=true`: Automatically installs all dependencies, configures **64GB swap**, **100GB ccache**, and tunes **swappiness=10**.
+- `RUN_SOURCE_SYNC=true`: Automatically initializes the repo and syncs all AxionOS and xaga-specific trees.
+- `RUN_BUILD=true`: Starts the ROM compilation immediately after setup/sync.
+- `CONFIG_BOT_TOKEN` & `CONFIG_CHATID`: Enter your Telegram bot details to receive real-time build progress and banners.
+- `PIXELDRAIN_API_KEY`: Enter your key to automatically upload the finished build to Pixeldrain.
+- `BUILD_VOLUME_DEVICE`: (Optional) If you have an extra NVMe volume (e.g., `/dev/sdb`), set this to format and mount it to `/build` automatically.
+
+#### `.env` Configuration Reference
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RUN_ENV_SETUP` | `true` | Install packages, setup swap (64G) and ccache (100G). |
+| `RUN_SOURCE_SYNC`| `true` | Sync AxionOS and xaga-specific source trees. |
+| `RUN_BUILD` | `false` | Start the ROM build after sync. |
+| `WORKDIR` | `axionos`| Directory where sources will be synced. |
+| `DEVICE` | `xaga` | Target device codename. |
+| `ROM_TYPE` | `axion-pico`| `axion-pico`, `axion-core`, or `axion-vanilla`. |
+| `USE_SAFE_BUILD` | `true` | Apply OOM-prevention flags (`-Wl,--no-keep-memory`). |
+| `THREADS` | (Auto) | Number of CPU threads to use for build. |
+| `CONFIG_BOT_TOKEN`| - | Telegram Bot API Token. |
+| `CONFIG_CHATID` | - | Telegram Chat/Channel ID for notifications. |
+| `PIXELDRAIN_API_KEY`| - | API key for automated Pixeldrain uploads. |
+| `RCLONE_REMOTE` | - | Rclone remote name for uploads. |
+| `POWEROFF` | `false` | Shutdown the server after build success/fail. |
+
+### 3. Launch the Automation
+
+Simply run the bootstrap script. It will handle Python dependencies, virtual environment setup, and start the CI bot:
+
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+### What the Automation Does for You:
+*   ✅ **Host Optimization**: Sets up a massive 64GB swap file and 100GB ccache to ensure stability on 16GB RAM machines.
+*   ✅ **Storage Management**: Moves `out/` and `ccache/` to the high-speed `/build` volume if detected.
+*   ✅ **OOM Prevention**: Automatically injects `-Wl,--no-keep-memory` and load-aware scheduling (`-l8`) into the build process.
+*   ✅ **Smart Syncing**: Uses optimized thread counts (4x CPU count) for faster source downloads.
+*   ✅ **Notifications**: Generates a custom build banner and sends progress updates to Telegram.
+*   ✅ **Auto-Upload**: Falls back through Rclone -> Pixeldrain -> Gofile to ensure your build is uploaded safely.
+
+---
+
+## Manual Build Guide (Legacy)
+
+If you prefer to run steps manually, follow the sections below.
 
 Create and enter your working directory:
 
@@ -313,9 +382,11 @@ If it works well, flash it permanently to your device!
 
 ### Common Issues
 
-1. **Out of memory during build**
-   - Increase swap space
+### 1. Out of memory during build
+   - **Recommended**: Use the [Automated Build Guide](#-automated-build-guide-recommended) which automatically sets up 64GB swap and applies OOM-prevention flags (`USE_SAFE_BUILD=true`).
+   - Increase swap space manually (64GB recommended for 16GB RAM).
    - Reduce parallel jobs: `ax -br -j4`
+   - Use safe linker flags: `export LDFLAGS="$LDFLAGS -Wl,--no-keep-memory"`
 
 2. **SELinux denials**
    - Add required SEPolicy rules to your device tree (see AxionOS README for details)
