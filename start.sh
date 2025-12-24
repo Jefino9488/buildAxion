@@ -15,6 +15,28 @@ require_cmd() {
 PROJECT_ROOT=$(cd "$(dirname "$0")" && pwd)
 cd "$PROJECT_ROOT"
 
+# Install Python3 if not present
+if ! command -v python3 >/dev/null 2>&1; then
+  log "Python3 not found. Installing..."
+  if command -v apt-get >/dev/null 2>&1; then
+    sudo apt-get update -y
+    sudo apt-get install -y python3 python3-pip python3-venv
+  elif command -v pacman >/dev/null 2>&1; then
+    sudo pacman -Sy --noconfirm python python-pip
+  else
+    error "Could not install Python3. Please install it manually."
+  fi
+  log "Python3 installed successfully."
+fi
+
+# Ensure python3-venv is available for virtual environments
+if ! python3 -m venv --help >/dev/null 2>&1; then
+  log "python3-venv not available. Installing..."
+  if command -v apt-get >/dev/null 2>&1; then
+    sudo apt-get install -y python3-venv
+  fi
+fi
+
 require_cmd python3
 
 # Optional: create a local venv for Python deps

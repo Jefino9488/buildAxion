@@ -47,11 +47,11 @@ class BotConfig:
 
     # AxionOS/AOSP repo settings
     AXION_REMOTE_URL: str = "https://github.com/AxionAOSP/android.git"
-    AXION_BRANCH: str = "lineage-23.0"
+    AXION_BRANCH: str = "lineage-23.1"
 
     # Sync/device related
     WORKDIR: str = "axionos"
-    THREADS: int = os.cpu_count() or 8
+    THREADS: int = 6  # First build MUST be -j6 for 16GB RAM
     WITH_MIUI_CAM: bool = False
     APPLY_WPA_PATCHES: bool = False
     BUILD_VOLUME_DEVICE: str = ""

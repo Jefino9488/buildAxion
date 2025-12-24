@@ -7,7 +7,7 @@ set -euo pipefail
 SCRIPT_NAME=$(basename "$0")
 
 AXION_REMOTE_URL=${AXION_REMOTE_URL:-"https://github.com/AxionAOSP/android.git"}
-AXION_BRANCH=${AXION_BRANCH:-"lineage-23.0"}
+AXION_BRANCH=${AXION_BRANCH:-"lineage-23.1"}
 WORKDIR=${WORKDIR:-"axionos"}
 THREADS=${THREADS:-"$(nproc --all)"}
 WITH_MIUI_CAM=${WITH_MIUI_CAM:-"false"}
@@ -43,12 +43,17 @@ EOF
 clone_if_missing() {
   local url="$1"; shift
   local dest="$1"; shift
+  local branch="${1:-}"  # Optional branch parameter
   if [[ -d "$dest/.git" ]]; then
     log "Exists: $dest"
   else
-    log "Cloning $url -> $dest"
+    log "Cloning $url -> $dest${branch:+ (branch: $branch)}"
     mkdir -p "$(dirname "$dest")"
-    git clone --depth=1 "$url" "$dest"
+    if [[ -n "$branch" ]]; then
+      git clone --depth=1 -b "$branch" "$url" "$dest"
+    else
+      git clone --depth=1 "$url" "$dest"
+    fi
   fi
 }
 
@@ -106,14 +111,15 @@ main() {
     log "Repo already initialized. Skipping repo init."
   else
     log "Initializing repo: $AXION_REMOTE_URL ($AXION_BRANCH)"
-    repo init -u "$AXION_REMOTE_URL" -b "$AXION_BRANCH" --git-lfs
+    repo init -u "$AXION_REMOTE_URL" -b "$AXION_BRANCH" --depth=1 --git-lfs
   fi
 
-  # Optimize sync threads: use THREADS * 4 for network-bound sync, but at least 8
-  local sync_threads=$(( THREADS * 4 ))
-  if (( sync_threads < 8 )); then sync_threads=8; fi
-  log "Syncing sources with $sync_threads threads (optimized for network)..."
-  repo sync -c --no-clone-bundle --optimized-fetch --prune --force-sync -j"$sync_threads"
+  # Optimize sync threads: limit to 6 for first sync to avoid OOM on 16GB RAM
+  local sync_threads=${THREADS:-6}
+  if (( sync_threads > 6 )); then sync_threads=6; fi
+  log "Syncing sources with $sync_threads threads (shallow clone, optimized for 16GB RAM)..."
+  # Use -c (current branch only), --no-tags, --no-clone-bundle for minimal disk usage
+  repo sync -c --no-tags --no-clone-bundle -j"$sync_threads"
 
   log "Cloning device/kernel/vendor/hardware trees for xaga..."
   clone_if_missing https://github.com/XagaForge/android_device_xiaomi_xaga device/xiaomi/xaga
@@ -131,7 +137,7 @@ main() {
   clone_if_missing https://github.com/XagaForge/android_vendor_mediatek_ims vendor/mediatek/ims
 
   if [[ "$WITH_MIUI_CAM" == "true" ]]; then
-    clone_if_missing https://gitlab.com/priiii1808/proprietary_vendor_xiaomi_miuicamera-xaga.git vendor/xiaomi/miuicamera-xaga
+    clone_if_missing https://gitlab.com/priiii1808/proprietary_vendor_xiaomi_miuicamera-xaga.git vendor/xiaomi/miuicamera-xaga 16.1
   else
     log "Skipping optional MIUI camera tree. Set WITH_MIUI_CAM=true to include."
   fi

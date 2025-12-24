@@ -168,12 +168,21 @@ setup_build_volume() {
 }
 
 optimize_host() {
-  log "Optimizing host for 16GB RAM / 8 vCPU profile..."
+  log "Optimizing host for 16GB RAM / 8 vCPU / Android 16 AOSP (MTK) profile..."
 
-  # Build volume if requested via BUILD_VOLUME_DEVICE
+  # =========================================================================
+  # FINAL LAYOUT (from optimization guide):
+  #   /                → AOSP source + out/ (320 GB)
+  #   /mnt/ccache      → ccache (100 GB volume)
+  #   /mnt/scratch     → dist / zips / backups (100 GB volume)
+  #   swap             → 64 GB
+  # ⚠️ out/ MUST stay on root. Never put out/ on a 100 GB volume.
+  # =========================================================================
+
+  # Build volume if requested via BUILD_VOLUME_DEVICE (legacy path)
   setup_build_volume
 
-  # Swap: 64GB
+  # Swap: 64GB (on root disk)
   if swapon --show | grep -q "/swapfile"; then
     log "Swapfile already exists. Skipping creation."
   else
@@ -188,28 +197,47 @@ optimize_host() {
     fi
   fi
 
-  # Tune swappiness
-  log "Setting swappiness to 10..."
-  echo "vm.swappiness=10" | sudo tee /etc/sysctl.d/99-swappiness.conf > /dev/null
-  sudo sysctl -p /etc/sysctl.d/99-swappiness.conf > /dev/null || true
+  # Tune VM for Android 16 AOSP build
+  log "Tuning VM parameters (swappiness=60, vfs_cache_pressure=50)..."
+  sudo sysctl -w vm.swappiness=60 >/dev/null 2>&1 || true
+  sudo sysctl -w vm.vfs_cache_pressure=50 >/dev/null 2>&1 || true
+  # Persist in sysctl.conf
+  if ! grep -q "vm.swappiness=60" /etc/sysctl.conf 2>/dev/null; then
+    echo "vm.swappiness=60" | sudo tee -a /etc/sysctl.conf >/dev/null
+  fi
+  if ! grep -q "vm.vfs_cache_pressure=50" /etc/sysctl.conf 2>/dev/null; then
+    echo "vm.vfs_cache_pressure=50" | sudo tee -a /etc/sysctl.conf >/dev/null
+  fi
 
-  # Ccache: 100GB
+  # Ccache: 90GB on /mnt/ccache (100GB volume with margin)
+  # Check if /mnt/ccache is mounted, else fallback to legacy paths
   local ccache_dir="$HOME/.ccache"
-  if [[ -d /build ]]; then
+  if mountpoint -q /mnt/ccache 2>/dev/null; then
+    ccache_dir="/mnt/ccache"
+    log "Using dedicated ccache volume at $ccache_dir"
+  elif [[ -d /mnt/ccache ]]; then
+    ccache_dir="/mnt/ccache"
+    log "Using /mnt/ccache directory for ccache"
+  elif [[ -d /build ]]; then
     ccache_dir="/build/ccache"
     mkdir -p "$ccache_dir"
   fi
 
   if command -v ccache >/dev/null 2>&1; then
-    log "Setting ccache max size to 100GB and directory to $ccache_dir..."
+    log "Setting ccache max size to 90GB and directory to $ccache_dir..."
+    export USE_CCACHE=1
+    export CCACHE_EXEC=/usr/bin/ccache
     export CCACHE_DIR="$ccache_dir"
-    ccache -M 100G
+    ccache -M 90G
+    ccache -z  # Reset stats
     
     # Persist in .bashrc if not already there
     if ! grep -q "export CCACHE_DIR" ~/.bashrc; then
       {
+        echo ""
+        echo "# ccache settings for Android build"
         echo "export USE_CCACHE=1"
-        echo "export CCACHE_EXEC=$(command -v ccache)"
+        echo "export CCACHE_EXEC=/usr/bin/ccache"
         echo "export CCACHE_DIR=$ccache_dir"
       } >> ~/.bashrc
       log "Persisted ccache settings in ~/.bashrc"
@@ -218,13 +246,39 @@ optimize_host() {
     warn "ccache not found, skipping size configuration."
   fi
 
-  # Persistent OUT_DIR if /build exists
-  if [[ -d /build ]]; then
-    mkdir -p /build/out
-    if ! grep -q "export OUT_DIR" ~/.bashrc; then
-      echo "export OUT_DIR=/build/out" >> ~/.bashrc
-      log "Persisted OUT_DIR=/build/out in ~/.bashrc"
-    fi
+  # Java + Build limits (Anti-OOM) for 16GB RAM / 8 vCPU
+  # Uses THREADS env var (default: 6) so editing .env_xaga changes everything
+  local build_threads="${THREADS:-6}"
+  log "Setting Java and build limits for OOM prevention (using -j$build_threads)..."
+  
+  # Remove old settings if present (to allow updates when THREADS changes)
+  sed -i '/_JAVA_OPTIONS/d; /JAVA_TOOL_OPTIONS/d; /SOONG_BUILD_NINJA_ARGS/d; /NINJA_ARGS/d; /MAKEFLAGS.*-j/d' ~/.bashrc 2>/dev/null || true
+  
+  {
+    echo ""
+    echo "# Java options for Android build (OOM prevention)"
+    echo 'export _JAVA_OPTIONS="-Xmx6g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseStringDeduplication"'
+    echo 'export JAVA_TOOL_OPTIONS="$_JAVA_OPTIONS"'
+    echo ""
+    echo "# Build limits (controlled by THREADS env var, default: 6)"
+    echo "export SOONG_BUILD_NINJA_ARGS=\"-j$build_threads\""
+    echo "export NINJA_ARGS=\"-j$build_threads\""
+    echo "export MAKEFLAGS=\"-j$build_threads\""
+  } >> ~/.bashrc
+  log "Persisted Java/build limit settings in ~/.bashrc (-j$build_threads)"
+
+  # Setup scratch directory for dist/zips/backups if available
+  if mountpoint -q /mnt/scratch 2>/dev/null || [[ -d /mnt/scratch ]]; then
+    log "Scratch volume available at /mnt/scratch for dist/zips/backups"
+    mkdir -p /mnt/scratch/dist 2>/dev/null || true
+  fi
+
+  # Verify volumes are ready
+  log "Verifying disk layout..."
+  df -h / /mnt/ccache /mnt/scratch 2>/dev/null || df -h /
+  free -h
+  if command -v ccache >/dev/null 2>&1; then
+    ccache -s 2>/dev/null | head -5 || true
   fi
 }
 
