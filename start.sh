@@ -22,7 +22,13 @@ VENV_DIR=".venv"
 PY="python3"
 
 if command -v python3 >/dev/null 2>&1 && "$PY" -m venv --help >/dev/null 2>&1; then
-  if [[ ! -d "$VENV_DIR" ]]; then
+  # Check if venv exists AND is valid (has activate script)
+  if [[ ! -f "$VENV_DIR/bin/activate" ]]; then
+    # Clean up broken venv if it exists
+    if [[ -d "$VENV_DIR" ]]; then
+      log "Removing broken virtual environment at $VENV_DIR"
+      rm -rf "$VENV_DIR"
+    fi
     log "Creating Python virtual environment at $VENV_DIR"
     "$PY" -m venv "$VENV_DIR"
   fi

@@ -23,6 +23,7 @@ from html import escape as html_escape
 # Try to import PIL for banner generation
 try:
     from PIL import Image, ImageDraw, ImageFont, ImageFilter
+
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False
@@ -36,10 +37,10 @@ except ImportError:
 # preserves backward compatibility if config.py/.env are absent.
 
 # Build Configuration (defaults)
-DEVICE = "xaga"                 # Device codename
-VARIANT = "userdebug"          # Build variant: "user", "userdebug", or "eng"
-CONFIG_OFFICIAL_FLAG = ""       # "1" for official builds
-ROM_TYPE = "axion-pico"        # axion-pico | axion-core | axion-vanilla (AxionAOSP)
+DEVICE = "xaga"  # Device codename
+VARIANT = "userdebug"  # Build variant: "user", "userdebug", or "eng"
+CONFIG_OFFICIAL_FLAG = ""  # "1" for official builds
+ROM_TYPE = "axion-pico"  # axion-pico | axion-core | axion-vanilla (AxionAOSP)
 
 # Telegram Configuration (defaults)
 CONFIG_CHATID = ""
@@ -68,6 +69,7 @@ PIN_SUCCESS_MESSAGE = True
 # Load configuration from config.py/.env
 try:
     from config import BotConfig
+
     _CFG = BotConfig.load(os.environ.get("ENV_FILE"))
     # Override defaults from config file
     DEVICE = _CFG.DEVICE or DEVICE
@@ -103,6 +105,7 @@ build_process = None
 previous_progress = ""
 
 TELEGRAM_BASE_URL = f"https://api.telegram.org/bot{CONFIG_BOT_TOKEN}"
+
 
 # ============================================================================
 # BANNER GENERATOR CLASS
@@ -201,7 +204,7 @@ class BannerGenerator:
         for i in range(20, 0, -2):
             alpha = int(255 * (i / 20) * 0.3)
             glow_draw.ellipse(
-                (20-i, 20-i, glow_size-20+i, glow_size-20+i),
+                (20 - i, 20 - i, glow_size - 20 + i, glow_size - 20 + i),
                 fill=(255, 255, 255, alpha)
             )
 
@@ -246,7 +249,9 @@ class BannerGenerator:
             progress = y / self.height
             if progress < 0.5:
                 local_blend = progress * 2
-                color = tuple(int(darkened[0][i] * (1 - local_blend) + lightened[0 if len(darkened) == 1 else 1][i] * local_blend) for i in range(3))
+                color = tuple(
+                    int(darkened[0][i] * (1 - local_blend) + lightened[0 if len(darkened) == 1 else 1][i] * local_blend)
+                    for i in range(3))
             else:
                 local_blend = (progress - 0.5) * 2
                 start_color = lightened[0 if len(lightened) == 1 else 1]
@@ -312,6 +317,7 @@ class BannerGenerator:
         image.save(output_path, 'PNG', quality=95, optimize=True)
         return output_path
 
+
 # ============================================================================
 # TELEGRAM FUNCTIONS
 # ============================================================================
@@ -334,6 +340,7 @@ def telegram_request(endpoint, data=None, files=None, timeout=30):
         print(f"Telegram API exception ({endpoint}): {e}", file=sys.stderr)
         return None
 
+
 def send_message(text, chat_id=None):
     """Send text message to Telegram"""
     data = {
@@ -344,6 +351,7 @@ def send_message(text, chat_id=None):
     }
     result = telegram_request('sendMessage', data=data)
     return result['result']['message_id'] if result else None
+
 
 def send_photo(photo_path, caption, chat_id=None):
     """Send photo with caption to Telegram"""
@@ -357,6 +365,7 @@ def send_photo(photo_path, caption, chat_id=None):
         result = telegram_request('sendPhoto', data=data, files=files)
         return result['result']['message_id'] if result else None
 
+
 def send_file(file_path, chat_id=None):
     """Send file to Telegram"""
     with open(file_path, 'rb') as file:
@@ -364,6 +373,7 @@ def send_file(file_path, chat_id=None):
         data = {'chat_id': chat_id or CONFIG_CHATID, 'parse_mode': 'HTML'}
         result = telegram_request('sendDocument', data=data, files=files, timeout=300)
         return result['result']['message_id'] if result else None
+
 
 def edit_message(message_id, text, chat_id=None, reply_markup=None):
     """Edit text message"""
@@ -381,6 +391,7 @@ def edit_message(message_id, text, chat_id=None, reply_markup=None):
         print(f"⚠️  Failed to edit message {message_id}", file=sys.stderr)
     return result
 
+
 def edit_photo_caption(message_id, caption, chat_id=None, reply_markup=None):
     """Edit photo caption"""
     data = {
@@ -396,6 +407,7 @@ def edit_photo_caption(message_id, caption, chat_id=None, reply_markup=None):
         print(f"⚠️  Failed to edit photo caption {message_id}", file=sys.stderr)
     return result
 
+
 def pin_message(message_id, chat_id=None):
     """Pin a message in the chat"""
     data = {
@@ -407,6 +419,7 @@ def pin_message(message_id, chat_id=None):
     if not result:
         print(f"⚠️  Failed to pin message {message_id}", file=sys.stderr)
     return result
+
 
 def create_download_buttons(rom_url, boot_images=None):
     """Create inline keyboard with download buttons"""
@@ -429,6 +442,7 @@ def create_download_buttons(rom_url, boot_images=None):
             buttons.append(boot_row)
 
     return {"inline_keyboard": buttons}
+
 
 # ============================================================================
 # BANNER GENERATION
@@ -458,6 +472,7 @@ def generate_build_banner():
     except Exception as e:
         print(f"❌ Error generating banner: {e}", file=sys.stderr)
         return None
+
 
 # ============================================================================
 # BUILD FUNCTIONS
@@ -524,6 +539,7 @@ def fetch_progress():
     except:
         return "Initializing..."
 
+
 def tail_build_log():
     """Tail build log and print to console"""
     last_position = 0
@@ -539,6 +555,7 @@ def tail_build_log():
             except:
                 pass
         time.sleep(0.5)
+
 
 def monitor_progress():
     """Monitor build progress and update Telegram"""
@@ -574,6 +591,7 @@ def monitor_progress():
         # Update more frequently (every 3 seconds instead of 5)
         time.sleep(3)
 
+
 # ============================================================================
 # UPLOAD FUNCTIONS
 # ============================================================================
@@ -607,6 +625,7 @@ def upload_gofile(file_path):
         print(f"❌ Error: {e}")
     return None
 
+
 def upload_pixeldrain(file_path):
     """Upload file to Pixeldrain"""
     if not PIXELDRAIN_API_KEY:
@@ -633,11 +652,12 @@ def upload_pixeldrain(file_path):
             file_id = result.get('id')
             print(f"✅ Upload complete! File ID: {file_id}")
             return f"https://pixeldrain.com/u/{file_id}"
-        
+
         print(f"❌ Pixeldrain upload failed: {result}")
     except Exception as e:
         print(f"❌ Pixeldrain error: {e}")
     return None
+
 
 def upload_rclone(file_path):
     """Upload file via rclone with duplicate handling"""
@@ -714,13 +734,14 @@ def upload_rclone(file_path):
         print(f"❌ Error: {e}")
         return None
 
+
 def upload_file(file_path):
     """Smart upload with fallback"""
     if RCLONE_REMOTE:
         url = upload_rclone(file_path)
         if url:
             return url
-    
+
     if PIXELDRAIN_API_KEY:
         url = upload_pixeldrain(file_path)
         if url:
@@ -728,6 +749,7 @@ def upload_file(file_path):
 
     url = upload_gofile(file_path)
     return url if url else "Upload failed"
+
 
 def upload_termbin(file_path):
     """Upload file content to termbin.com"""
@@ -770,6 +792,7 @@ def upload_termbin(file_path):
         print(f"❌ Termbin upload error: {e}")
     return None
 
+
 def find_rom_zip():
     """Find the main ROM zip file"""
     rom_patterns = ['axion-*.zip', 'lineage-*.zip', 'voltage-*.zip', 'arrow-*.zip', 'evolution-*.zip']
@@ -781,6 +804,7 @@ def find_rom_zip():
         if files:
             return str(max(files, key=lambda f: f.stat().st_mtime))
     return None
+
 
 def handle_interrupt(signum, frame):
     """Handle Ctrl+C interrupt"""
@@ -805,6 +829,7 @@ def handle_interrupt(signum, frame):
 
     sys.exit(130)
 
+
 # ============================================================================
 # MAIN
 # ============================================================================
@@ -819,6 +844,7 @@ def clean_rom_name(org_name):
             cleaned = cleaned[:-len(suffix)]
             break
     return cleaned
+
 
 def get_rom_info():
     """Get ROM name and avatar from manifest"""
@@ -849,6 +875,7 @@ def get_rom_info():
         print(f"⚠️  Could not get manifest remote: {e}")
         print(f"⚠️  Using directory name as ROM name: {ROM_NAME}")
 
+
 def detect_android_version():
     """Detect Android version from manifest"""
     default_manifest = os.path.join(ROOT_DIRECTORY, '.repo/manifests/default.xml')
@@ -866,9 +893,11 @@ def detect_android_version():
             pass
     return "Unknown"
 
+
 def update_telegram_status(status_msg):
     """Update Telegram message with current status"""
     (edit_photo_caption if use_banner else edit_message)(build_message_id, status_msg)
+
 
 def main():
     global OUT_DIR, ANDROID_VERSION, build_message_id, use_banner, build_process, TELEGRAM_BASE_URL, ROOT_DIRECTORY
@@ -878,7 +907,8 @@ def main():
     parser.add_argument('-s', '--sync', action='store_true', help='Sync sources before building')
     parser.add_argument('-c', '--clean', action='store_true', help='Clean build directory')
     parser.add_argument('--c-d', '--clean-device', action='store_true', help='Clean device directory')
-    parser.add_argument('--env-file', default=os.environ.get('ENV_FILE', ''), help='Path to .env file (default: .env or .env_xaga)')
+    parser.add_argument('--env-file', default=os.environ.get('ENV_FILE', ''),
+                        help='Path to .env file (default: .env or .env_xaga)')
     parser.add_argument('--prepare-only', action='store_true', help='Run environment setup and source sync then exit')
     args = parser.parse_args()
 
@@ -925,6 +955,10 @@ def main():
         if getattr(cfg, 'RUN_SOURCE_SYNC', False):
             print("🔁 Syncing sources (RUN_SOURCE_SYNC=true)...")
             env = os.environ.copy()
+            # Ensure $HOME/bin is in PATH (repo may have been installed there by setup_build_env.sh)
+            home_bin = os.path.join(os.path.expanduser('~'), 'bin')
+            if home_bin not in env.get('PATH', ''):
+                env['PATH'] = f"{home_bin}:{env.get('PATH', '')}"
             env.update(cfg.to_script_env())
             try:
                 if getattr(cfg, 'DRY_RUN', False):
@@ -998,7 +1032,9 @@ def main():
 
         try:
             sync_threads = cfg.THREADS * 4 if cfg else 32
-            subprocess.run(['repo', 'sync', '-c', '--force-sync', '--no-clone-bundle', '--no-tags', '-j', str(sync_threads)], check=True)
+            subprocess.run(
+                ['repo', 'sync', '-c', '--force-sync', '--no-clone-bundle', '--no-tags', '-j', str(sync_threads)],
+                check=True)
             edit_message(sync_msg_id, f"""🟢 | <i>Sources synced!!</i>
 
 <b>• ROM:</b> <code>{ROM_NAME}</code>
@@ -1072,7 +1108,7 @@ def main():
     ccache_path = shutil.which('ccache')
     if ccache_path:
         build_env['CCACHE_EXEC'] = ccache_path
-    
+
     if os.environ.get('CCACHE_DIR'):
         build_env['CCACHE_DIR'] = os.environ.get('CCACHE_DIR')
     elif os.path.isdir("/build/ccache"):
@@ -1199,7 +1235,7 @@ def main():
 
         rom_filename = os.path.basename(rom_zip)
         rom_size_bytes = os.path.getsize(rom_zip)
-        size_gb = rom_size_bytes / (1024**3)
+        size_gb = rom_size_bytes / (1024 ** 3)
         hours, remainder = divmod(build_duration, 3600)
         minutes, seconds = divmod(remainder, 60)
 
@@ -1273,7 +1309,6 @@ def main():
         elif UPLOAD_OTA_JSON:
             print("\n❌ UPLOAD_OTA_JSON is enabled, but OTA_JSON_PATH is not defined for non-Axion ROMs.")
 
-
         # Final success message - Escape all dynamic content for HTML safety
         e_rom_name = html_escape(ROM_NAME)
         e_device = html_escape(DEVICE)
@@ -1307,7 +1342,8 @@ def main():
         download_buttons = create_download_buttons(rom_url, boot_images if boot_images else None)
 
         print("\n📤 Sending success message to Telegram...")
-        result = (edit_photo_caption if use_banner else edit_message)(build_message_id, success_msg, reply_markup=download_buttons)
+        result = (edit_photo_caption if use_banner else edit_message)(build_message_id, success_msg,
+                                                                      reply_markup=download_buttons)
         if result:
             print("✅ Success message sent!")
         else:
@@ -1348,6 +1384,7 @@ def main():
             subprocess.run(['sudo', 'poweroff'], check=False)
         except KeyboardInterrupt:
             print("\n⚠️  Shutdown cancelled by user")
+
 
 if __name__ == "__main__":
     main()

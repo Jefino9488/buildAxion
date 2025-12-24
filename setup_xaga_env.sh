@@ -12,6 +12,8 @@ WORKDIR=${WORKDIR:-"axionos"}
 THREADS=${THREADS:-"$(nproc --all)"}
 WITH_MIUI_CAM=${WITH_MIUI_CAM:-"false"}
 APPLY_WPA_PATCHES=${APPLY_WPA_PATCHES:-"false"}
+GIT_USER_NAME=${GIT_USER_NAME:-"Jefino9488"}
+GIT_USER_EMAIL=${GIT_USER_EMAIL:-"jefino9488@gmail.com"}
 
 log()   { echo -e "[INFO]  $*"; }
 warn()  { echo -e "[WARN]  $*" >&2; }
@@ -85,6 +87,16 @@ main() {
   need_cmd git
   need_cmd curl
   need_cmd repo
+
+  # Configure git identity if not already set (required for repo init)
+  if ! git config --global user.name >/dev/null 2>&1; then
+    log "Configuring git user.name: $GIT_USER_NAME"
+    git config --global user.name "$GIT_USER_NAME"
+  fi
+  if ! git config --global user.email >/dev/null 2>&1; then
+    log "Configuring git user.email: $GIT_USER_EMAIL"
+    git config --global user.email "$GIT_USER_EMAIL"
+  fi
 
   log "Using workdir: $WORKDIR"
   mkdir -p "$WORKDIR"
