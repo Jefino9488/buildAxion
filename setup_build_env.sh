@@ -54,7 +54,8 @@ install_debian_based() {
     squashfs-tools yasm \
     jq aria2 \
     netcat-openbsd \
-    rclone
+    rclone \
+    byobu
 
   # Optional but useful
   log "Installing optional helpers (useful for some trees/scripts)..."
@@ -67,6 +68,10 @@ install_debian_based() {
 
   log "Ensuring git-lfs is initialized..."
   git lfs install --skip-repo || true
+
+  # Enable byobu for persistent terminal sessions (survives SSH disconnect)
+  log "Enabling byobu for persistent sessions..."
+  byobu-enable 2>/dev/null || true
 
   ensure_repo_tool
 }
