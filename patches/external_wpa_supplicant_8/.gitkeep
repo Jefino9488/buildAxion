@@ -1,0 +1,7 @@
+# Placeholder - patch files will be generated here
+# 
+# To generate the WPA patches:
+#   cd $WORKDIR/external/wpa_supplicant_8
+#   git fetch https://github.com/Nothing-2A/android_external_wpa_supplicant_8
+#   git format-patch -1 39200b6c7b1f9ff1c1c6a6a5e4cd08c6f526d048 -o ~/buildAxion/patches/external_wpa_supplicant_8/
+#   git format-patch -1 37a6e255d9d68fb483d12db550028749b280509b -o ~/buildAxion/patches/external_wpa_supplicant_8/

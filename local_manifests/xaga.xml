@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Local manifest for Axion xaga build.
+  Copy this directory to $WORKDIR/.repo/local_manifests/ before repo sync.
+  
+  Remotes:
+    - jefino9488: personal forks
+    - xagaforge: XagaForge upstream repos
+    - gitlab-priii: GitLab vendor repos
+-->
+<manifest>
+
+  <!-- ========== REMOTES ========== -->
+  <remote name="jefino9488" 
+          fetch="https://github.com/Jefino9488" 
+          review="https://github.com/Jefino9488" />
+  
+  <remote name="xagaforge" 
+          fetch="https://github.com/XagaForge" />
+  
+  <remote name="gitlab-priii" 
+          fetch="https://gitlab.com/priiii08918" />
+
+  <remote name="gitlab-miuicam"
+          fetch="https://gitlab.com/priiii1808" />
+
+  <!-- ========== YOUR FORKS (Push Access) ========== -->
+  
+  <!-- Device Trees (YOUR FORKS) -->
+  <project path="device/xiaomi/xaga" 
+           name="android_device_xiaomi_xaga" 
+           remote="jefino9488" 
+           revision="lineage-23.1"
+           clone-depth="1" />
+           
+  <project path="device/xiaomi/mt6895-common" 
+           name="android_device_xiaomi_mt6895-common" 
+           remote="jefino9488" 
+           revision="lineage-23.1"
+           clone-depth="1" />
+
+  <!-- SEpolicy (YOUR FORK) -->
+  <project path="device/mediatek/sepolicy_vndr" 
+           name="android_device_mediatek_sepolicy_vndr" 
+           remote="jefino9488" 
+           revision="lineage-23.1"
+           clone-depth="1" />
+
+  <!-- ========== UPSTREAM REPOS (XagaForge) ========== -->
+  
+  <!-- Kernel -->
+  <project path="kernel/xiaomi/mt6895" 
+           name="android_kernel_xiaomi_mt6895" 
+           remote="xagaforge" 
+           revision="lineage-23.1"
+           clone-depth="1" />
+  
+  <!-- Vendor -->
+  <project path="vendor/xiaomi/xaga" 
+           name="android_vendor_xiaomi_xaga" 
+           remote="gitlab-priii" 
+           revision="main"
+           clone-depth="1" />
+           
+  <project path="vendor/xiaomi/mt6895-common" 
+           name="android_vendor_xiaomi_mt6895-common" 
+           remote="xagaforge" 
+           revision="lineage-23.1"
+           clone-depth="1" />
+           
+  <project path="vendor/firmware" 
+           name="android_vendor_firmware" 
+           remote="xagaforge" 
+           revision="main"
+           clone-depth="1" />
+  
+  <!-- Hardware -->
+  <project path="hardware/xiaomi" 
+           name="android_hardware_xiaomi" 
+           remote="xagaforge" 
+           revision="lineage-23.1"
+           clone-depth="1" />
+           
+  <project path="hardware/mediatek" 
+           name="android_hardware_mediatek" 
+           remote="xagaforge" 
+           revision="lineage-23.1"
+           clone-depth="1" />
+  
+  <!-- MediaTek IMS -->
+  <project path="vendor/mediatek/ims" 
+           name="android_vendor_mediatek_ims" 
+           remote="xagaforge" 
+           revision="lineage-23.1"
+           clone-depth="1" />
+
+</manifest>

@@ -1,23 +1,26 @@
 #!/usr/bin/env bash
-# Purpose: Sync AxionOS/AOSP sources and clone xaga device dependencies
-# Safe to re-run (idempotent where possible)
+# Purpose: Sync AxionOS/AOSP sources using local manifests
+# Uses professional AOSP patterns: local manifests, patches, forked repos
+# Safe to re-run (idempotent)
 
 set -euo pipefail
 
 SCRIPT_NAME=$(basename "$0")
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 
+# Configuration (can be overridden via env vars or .env file)
 AXION_REMOTE_URL=${AXION_REMOTE_URL:-"https://github.com/AxionAOSP/android.git"}
 AXION_BRANCH=${AXION_BRANCH:-"lineage-23.1"}
 WORKDIR=${WORKDIR:-"axionos"}
-THREADS=${THREADS:-"$(nproc --all)"}
+THREADS=${THREADS:-"6"}
 WITH_MIUI_CAM=${WITH_MIUI_CAM:-"false"}
 APPLY_WPA_PATCHES=${APPLY_WPA_PATCHES:-"false"}
 GIT_USER_NAME=${GIT_USER_NAME:-"Jefino9488"}
 GIT_USER_EMAIL=${GIT_USER_EMAIL:-"jefino9488@gmail.com"}
 
-log()   { echo -e "[INFO]  $*"; }
-warn()  { echo -e "[WARN]  $*" >&2; }
-error() { echo -e "[ERROR] $*" >&2; exit 1; }
+log()   { echo -e "\033[1;32m[INFO]\033[0m  $*"; }
+warn()  { echo -e "\033[1;33m[WARN]\033[0m  $*" >&2; }
+error() { echo -e "\033[1;31m[ERROR]\033[0m $*" >&2; exit 1; }
 
 need_cmd() {
   command -v "$1" >/dev/null 2>&1 || error "Required command '$1' not found. Install it first or run ./setup_build_env.sh"
@@ -25,48 +28,92 @@ need_cmd() {
 
 usage() {
   cat <<EOF
-${SCRIPT_NAME} - Sync AxionOS sources and clone device trees for xaga
+${SCRIPT_NAME} - Sync AxionOS sources using local manifests
+
+This script uses the professional AOSP pattern:
+  1. repo init with AxionAOSP manifest
+  2. Copy local_manifests/ to .repo/local_manifests/
+  3. repo sync (fetches everything including your device trees)
+  4. Apply patches from patches/ directory
 
 Env vars / Flags:
   WORKDIR=<path>            Working directory (default: axionos)
-  THREADS=<n>               repo sync jobs (default: nproc)
-  WITH_MIUI_CAM=true        Also clone optional MIUI camera tree (default: false)
-  APPLY_WPA_PATCHES=true    Apply wpa_supplicant_8 patches (default: false)
+  THREADS=<n>               repo sync jobs (default: 6)
+  WITH_MIUI_CAM=true        Include MIUI camera tree (default: false)
+  APPLY_WPA_PATCHES=true    Apply WPA patches after sync (default: false)
 
 Examples:
   ${SCRIPT_NAME}
-  WORKDIR=$HOME/axionos ${SCRIPT_NAME}
+  WORKDIR=\$HOME/axionos ${SCRIPT_NAME}
   WITH_MIUI_CAM=true APPLY_WPA_PATCHES=true ${SCRIPT_NAME}
 EOF
 }
 
-clone_if_missing() {
-  local url="$1"; shift
-  local dest="$1"; shift
-  local branch="${1:-}"  # Optional branch parameter
-  if [[ -d "$dest/.git" ]]; then
-    log "Exists: $dest"
+setup_local_manifests() {
+  local dest=".repo/local_manifests"
+  
+  log "Setting up local manifests..."
+  mkdir -p "$dest"
+  
+  # Always copy the main xaga.xml
+  if [[ -f "${SCRIPT_DIR}/local_manifests/xaga.xml" ]]; then
+    cp "${SCRIPT_DIR}/local_manifests/xaga.xml" "$dest/"
+    log "  ✓ Copied xaga.xml"
   else
-    log "Cloning $url -> $dest${branch:+ (branch: $branch)}"
-    mkdir -p "$(dirname "$dest")"
-    if [[ -n "$branch" ]]; then
-      git clone --depth=1 -b "$branch" "$url" "$dest"
-    else
-      git clone --depth=1 "$url" "$dest"
+    warn "  xaga.xml not found in ${SCRIPT_DIR}/local_manifests/"
+  fi
+  
+  # Conditionally copy MIUI camera manifest
+  if [[ "$WITH_MIUI_CAM" == "true" ]]; then
+    if [[ -f "${SCRIPT_DIR}/local_manifests/miui_camera.xml" ]]; then
+      cp "${SCRIPT_DIR}/local_manifests/miui_camera.xml" "$dest/"
+      log "  ✓ Copied miui_camera.xml (MIUI camera enabled)"
     fi
+  else
+    # Remove if exists (in case user disabled it)
+    rm -f "$dest/miui_camera.xml" 2>/dev/null || true
+    log "  ⊘ MIUI camera disabled"
+  fi
+  
+  # List what's in local_manifests
+  log "  Local manifests:"
+  ls -la "$dest"/*.xml 2>/dev/null | while read -r line; do
+    log "    $line"
+  done
+}
+
+apply_patches() {
+  if [[ -x "${SCRIPT_DIR}/apply_patches.sh" ]]; then
+    log "Applying patches..."
+    "${SCRIPT_DIR}/apply_patches.sh" "$(pwd)"
+  else
+    warn "apply_patches.sh not found or not executable. Skipping patches."
   fi
 }
 
-apply_wpa_patches() {
+# Legacy: apply WPA patches via cherry-pick if patches not available
+apply_wpa_patches_legacy() {
   local dir="external/wpa_supplicant_8"
   if [[ ! -d "$dir/.git" ]]; then
     warn "Cannot find $dir. Skipping WPA patches."
     return 0
   fi
+  
+  # Check if we have proper .patch files
+  if [[ -d "${SCRIPT_DIR}/patches/external_wpa_supplicant_8" ]] && \
+     ls "${SCRIPT_DIR}/patches/external_wpa_supplicant_8"/*.patch >/dev/null 2>&1; then
+    log "WPA patches will be applied via apply_patches.sh"
+    return 0
+  fi
+  
+  # Fallback to legacy cherry-pick method
+  warn "Using legacy cherry-pick method for WPA patches."
+  warn "Consider generating proper .patch files for version control."
+  
   pushd "$dir" >/dev/null
   log "Fetching WPA patch source..."
   git fetch https://github.com/Nothing-2A/android_external_wpa_supplicant_8 || true
-  # Try cherry-picks; ignore if already applied
+  
   for commit in \
     39200b6c7b1f9ff1c1c6a6a5e4cd08c6f526d048 \
     37a6e255d9d68fb483d12db550028749b280509b; do
@@ -107,6 +154,7 @@ main() {
   mkdir -p "$WORKDIR"
   cd "$WORKDIR"
 
+  # ========== Step 1: repo init ==========
   if [[ -d .repo ]]; then
     log "Repo already initialized. Skipping repo init."
   else
@@ -114,53 +162,53 @@ main() {
     repo init -u "$AXION_REMOTE_URL" -b "$AXION_BRANCH" --depth=1 --git-lfs
   fi
 
-  # Optimize sync threads: limit to 6 for first sync to avoid OOM on 16GB RAM
+  # ========== Step 2: Setup local manifests ==========
+  setup_local_manifests
+
+  # ========== Step 3: repo sync ==========
   local sync_threads=${THREADS:-6}
   if (( sync_threads > 6 )); then sync_threads=6; fi
-  log "Syncing sources with $sync_threads threads (shallow clone, optimized for 16GB RAM)..."
-  # Use -c (current branch only), --no-tags, --no-clone-bundle for minimal disk usage
+  
+  log "Syncing sources with $sync_threads threads..."
+  log "This will fetch AxionOS base + all device trees from local manifests"
   repo sync -c --no-tags --no-clone-bundle -j"$sync_threads"
 
-  log "Cloning device/kernel/vendor/hardware trees for xaga..."
-  clone_if_missing https://github.com/XagaForge/android_device_xiaomi_xaga device/xiaomi/xaga
-  clone_if_missing https://github.com/XagaForge/android_device_xiaomi_mt6895-common device/xiaomi/mt6895-common
-  clone_if_missing https://github.com/XagaForge/android_kernel_xiaomi_mt6895 kernel/xiaomi/mt6895
-
-  clone_if_missing https://gitlab.com/priiii08918/android_vendor_xiaomi_xaga vendor/xiaomi/xaga
-  clone_if_missing https://github.com/XagaForge/android_vendor_xiaomi_mt6895-common vendor/xiaomi/mt6895-common
-  clone_if_missing https://github.com/XagaForge/android_vendor_firmware vendor/firmware
-
-  clone_if_missing https://github.com/XagaForge/android_hardware_xiaomi hardware/xiaomi
-  clone_if_missing https://github.com/XagaForge/android_hardware_mediatek hardware/mediatek
-
-  clone_if_missing https://github.com/XagaForge/android_device_mediatek_sepolicy_vndr device/mediatek/sepolicy_vndr
-  clone_if_missing https://github.com/XagaForge/android_vendor_mediatek_ims vendor/mediatek/ims
-
-  if [[ "$WITH_MIUI_CAM" == "true" ]]; then
-    clone_if_missing https://gitlab.com/priiii1808/proprietary_vendor_xiaomi_miuicamera-xaga.git vendor/xiaomi/miuicamera-xaga 16.1
-  else
-    log "Skipping optional MIUI camera tree. Set WITH_MIUI_CAM=true to include."
-  fi
-
+  # ========== Step 4: Apply patches ==========
+  apply_patches
+  
+  # Legacy WPA patches (if enabled and .patch files not available)
   if [[ "$APPLY_WPA_PATCHES" == "true" ]]; then
-    apply_wpa_patches
-  else
-    log "Skipping WPA patches. Set APPLY_WPA_PATCHES=true to apply."
+    apply_wpa_patches_legacy
   fi
 
-  log "Done. Next steps (from README):"
+  # ========== Done ==========
+  log ""
+  log "=========================================="
+  log "  Sync Complete!"
+  log "=========================================="
+  log ""
+  log "Your forked repos (push access):"
+  log "  • device/xiaomi/xaga"
+  log "  • device/xiaomi/mt6895-common"
+  log "  • device/mediatek/sepolicy_vndr"
+  log ""
+  log "To make changes and push:"
+  log "  cd device/xiaomi/xaga"
+  log "  # make your edits..."
+  log "  git add . && git commit -m 'Your change'"
+  log "  git push origin HEAD:lineage-23.1"
+  log ""
+  log "Next steps:"
   cat <<'STEPS'
   1) . build/envsetup.sh
   2) If first build only: gk -s
-  3) Choose device/variant, e.g.:
-       axion xaga            # default: gms core
-       axion xaga gms pico   # minimal Google apps
-       axion xaga va         # vanilla
+  3) Choose device/variant:
+       axion xaga              # default: gms core
+       axion xaga gms pico     # minimal Google apps
+       axion xaga va           # vanilla
   4) Build:
        ax -br -j$(nproc --all)
 STEPS
-
-  log "To update sources later, you can run 'axionSync' from within the tree (if available), or re-run this script."
 }
 
 main "$@"

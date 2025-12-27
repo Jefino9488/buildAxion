@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Optional: MIUI Camera manifest.
+  
+  To enable:  Copy this file to $WORKDIR/.repo/local_manifests/
+  To disable: Remove or rename this file from .repo/local_manifests/
+-->
+<manifest>
+
+  <remote name="gitlab-miuicam"
+          fetch="https://gitlab.com/priiii1808" />
+
+  <!-- MIUI Camera (Optional) -->
+  <project path="vendor/xiaomi/miuicamera-xaga" 
+           name="proprietary_vendor_xiaomi_miuicamera-xaga" 
+           remote="gitlab-miuicam" 
+           revision="16.1"
+           clone-depth="1" />
+
+</manifest>
